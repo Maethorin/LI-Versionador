@@ -1,0 +1,244 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import re
+import sys
+import pprint
+
+from subprocess import check_output, CalledProcessError
+from derpconf.config import Config, generate_config
+
+
+class Cores(object):
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+    BHEADER = '\033[1;95m'
+    BOKBLUE = '\033[1;94m'
+    BOKGREEN = '\033[1;92m'
+    BWARNING = '\033[1;93m'
+    BFAIL = '\033[1;91m'
+
+
+def diretorio_config():
+    dir_path = os.path.join(os.path.expanduser("~"), ".versionador")
+    if not os.path.exists(dir_path):
+        diretorio = os.path.dirname(os.path.realpath(__file__))
+        dir_path = os.path.join(diretorio, "config")
+    return dir_path
+
+caminho_config = os.path.join(diretorio_config(), "versionador.conf")
+config = Config.load(caminho_config)
+for _item in config.items:
+    Config.define(_item, config.items[_item], "")
+
+
+def define_parte_da_versao(parte, atual):
+    if parte == "-":
+        return atual
+    if parte == "+":
+        return str(int(atual) + 1)
+    return parte
+
+
+def string_do_arquivo_setup(caminho_setup):
+    setup_file = open(caminho_setup, "r")
+    setup_str = setup_file.read()
+    setup_file.close()
+    return setup_str
+
+
+def regex_versao():
+    return re.compile(r"version=[\'|\"]([0-9]*)\.([0-9]*)\.([0-9]*)[\'|\"]")
+
+
+def versao_atual(caminho_setup):
+    padrao_re = regex_versao()
+    setup_str = string_do_arquivo_setup(caminho_setup)
+    return [parte for parte in padrao_re.search(setup_str).groups()]
+
+
+def atualiza_versao(nome_pagador, major="-", minor="-", revision="-"):
+    print "INICINADO {}{}{}\n".format(Cores.BHEADER, nome_pagador.upper(), Cores.ENDC)
+    caminho_setup = os.path.join(config.PACOTES[nome_pagador], "setup.py")
+    setup_str = string_do_arquivo_setup(caminho_setup)
+    padrao_re = regex_versao()
+    _versao_atual = versao_atual(caminho_setup)
+    atual = ".".join(_versao_atual)
+    _versao_atual[0] = define_parte_da_versao(major, _versao_atual[0])
+    _versao_atual[1] = define_parte_da_versao(minor, _versao_atual[1])
+    _versao_atual[2] = define_parte_da_versao(revision, _versao_atual[2])
+    nova_versao = ".".join(_versao_atual)
+    setup_file = open(caminho_setup, "w")
+    setup_file.write(padrao_re.sub("version='{}'".format(nova_versao), setup_str))
+    setup_file.close()
+    resultado = {}
+    if nova_versao != atual:
+        print "SUBINDO A NOVA VERSÃO PARA O PYPI\n"
+        diretorio_setup = config.PACOTES[nome_pagador]
+        resultado_upload = ""
+        try:
+            if not config.DEBUG:
+                resultado_upload = check_output(["python", "setup.py", "sdist", "upload"], cwd=diretorio_setup)
+        except CalledProcessError:
+            pass
+        if "Server response (200)" in resultado_upload:
+            print "\n{}{} PRONTO!{}\n".format(Cores.OKGREEN, nome_pagador.upper(), Cores.ENDC)
+            resultado = {
+                "pagador": nome_pagador,
+                "atual": atual,
+                "nova_versao": nova_versao,
+            }
+        else:
+            print "\n{}{} NÃO FEZ UPLOAD!{}\n".format(Cores.BFAIL, nome_pagador.upper(), Cores.ENDC)
+    else:
+        print "\n{}{} FINALIZADO MAS NENHUMA AÇÃO FOI TOMADA POIS A VERSÃO GERADA É A MESMA{}\n".format(Cores.BFAIL, nome_pagador.upper(), Cores.ENDC)
+    return resultado
+
+
+def versionar(pagadores_dict):
+    resultados = []
+    for chave in pagadores_dict.keys():
+        pagador_dict = pagadores_dict[chave]
+        resultado = atualiza_versao(chave, major=pagador_dict["major"], minor=pagador_dict["minor"], revision=pagador_dict["revision"])
+        if resultado:
+            resultados.append(resultado)
+
+    for resultado in resultados:
+        print "ATUALIZADO {}{}{} DA VERSÃO {}{}{} PARA A VERSÃO {}{}{}".format(
+            Cores.HEADER, resultado["pagador"].upper(), Cores.ENDC,
+            Cores.BOKBLUE, resultado["atual"], Cores.ENDC,
+            Cores.BOKGREEN, resultado["nova_versao"], Cores.ENDC)
+
+
+def gravar_arquivo_config():
+    pp = pprint.PrettyPrinter(indent=4)
+    config_file = open(caminho_config, "w")
+    for chave in config.items:
+        if chave == "defaults":
+            continue
+        valor = config.items[chave]
+        formatado = pp.pformat(valor)
+        formatado = formatado.replace("{", "{\n ")
+        formatado = formatado.replace("}", "\n}")
+        config_file.write("""{} = {}\n\n""".format(chave, formatado))
+    config_file.close()
+
+
+def registra_pacote(nome, caminho_setup, abreviatura=None):
+    if not abreviatura:
+        abreviatura = nome[:2].lower()
+    if not os.path.exists(caminho_setup):
+        print "\n{}O CAMINHO {} NÃO FOI ENCONTRADO. PACOTE NÃO REGISTRADO{}\n".format(Cores.BFAIL, caminho_setup, Cores.ENDC)
+        return
+    config.PACOTES[nome] = caminho_setup
+    config.ABREVIATURAS[abreviatura] = nome
+    gravar_arquivo_config()
+    print "\nREGISTRADO {}{}{} NO VERSIONADOR USANDO O SETUP.PY EM {}{}{}. PARA VERSIONAR USE {}{}{}=X.X.X OU {}{}{}=X.X.X.\n".format(
+        Cores.BHEADER, nome, Cores.ENDC,
+        Cores.BOKBLUE, caminho_setup, Cores.ENDC,
+        Cores.BOKGREEN, nome, Cores.ENDC,
+        Cores.BOKGREEN, abreviatura, Cores.ENDC
+    )
+
+
+def listar_pacotes():
+    tamanho_maior_nome = 0
+    for pacote in config.PACOTES:
+        if len(pacote) > tamanho_maior_nome:
+            tamanho_maior_nome = len(pacote)
+    exemplo_versao = "{}X.X.X{}".format(Cores.BOKBLUE, Cores.ENDC)
+    print "\nPacotes registrados:\n"
+    for abreviatura in config.ABREVIATURAS:
+        pacote = config.ABREVIATURAS[abreviatura]
+        tamenho = len(pacote)
+        caminho_setup = os.path.join(config.PACOTES[pacote], "setup.py")
+        _versao_atual = versao_atual(caminho_setup)
+        print "PACOTE {}{}{} VERSÃO ATUAL {}{}{} PARA VERSIONAR USE {} OU {}".format(
+            Cores.BHEADER, pacote.ljust(tamanho_maior_nome), Cores.ENDC,
+            Cores.BOKBLUE, ".".join(_versao_atual).rjust(7), Cores.ENDC,
+            "{}{}{}={}{}".format(Cores.BOKGREEN, pacote, Cores.ENDC, exemplo_versao, (" " * (tamanho_maior_nome - tamenho))),
+            "{}{}{}={}".format(Cores.BOKGREEN, abreviatura, Cores.ENDC, exemplo_versao),
+        )
+    print "\n"
+
+
+def remover_pacote(pacote):
+    if pacote in config.ABREVIATURAS:
+        pacote = config.ABREVIATURAS[pacote]
+    if not pacote in config.PACOTES:
+        print "\n{}O pacote {}{}{} não está registrado no versionador{}\n".format(Cores.BFAIL, Cores.BHEADER, pacote, Cores.BFAIL, Cores.ENDC)
+        listar_pacotes()
+        return
+    abreviaturas_a_remover = []
+    for abr in config.ABREVIATURAS:
+        if config.ABREVIATURAS[abr] == pacote:
+            abreviaturas_a_remover.append(abr)
+    for abr in abreviaturas_a_remover:
+        del config.ABREVIATURAS[abr]
+    del config.PACOTES[pacote]
+    gravar_arquivo_config()
+    print "\n{}Pacote {}{}{} removido com sucesso.{}\n".format(Cores.BOKGREEN, Cores.BHEADER, pacote, Cores.BOKGREEN, Cores.ENDC)
+
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    pagadores = {}
+    if args[0] == 'remover':
+        try:
+            _nome = args[1]
+            remover_pacote(_nome)
+        except IndexError:
+            print "\n{}Informe o nome ou abreviatura do pacote a ser removido{}\n".format(Cores.BFAIL, Cores.ENDC)
+        exit(0)
+
+    if args[0] == 'listar':
+        listar_pacotes()
+        exit(0)
+
+    if args[0] == 'registrar':
+        _nome = ""
+        _caminho_setup = ""
+        _abreviatura = None
+        try:
+            _nome = args[1]
+            _caminho_setup = args[2]
+        except IndexError:
+            print "\n{}UM OU MAIS ARGUMENTOS FALTANDO. USE {}versionador {}registrar nome-pacote diretorio/para/setup abreviatura{}\n".format(Cores.BFAIL, Cores.BHEADER, Cores.BOKGREEN, Cores.ENDC)
+            exit(0)
+        try:
+            _abreviatura = args[3]
+        except IndexError:
+            pass
+        registra_pacote(_nome, _caminho_setup, _abreviatura)
+        exit(0)
+
+    for arg in args:
+        arg = arg.split("=")
+        versao = arg[1].split(".")
+        if arg[0] in config.ABREVIATURAS:
+            pagador = config.ABREVIATURAS[arg[0]]
+            pagadores[pagador] = {
+                "major": versao[0],
+                "minor": versao[1],
+                "revision": versao[2],
+            }
+        elif arg[0] in config.PACOTES:
+            pagadores[arg[0]] = {
+                "major": versao[0],
+                "minor": versao[1],
+                "revision": versao[2],
+            }
+        elif arg[0] == 'todos':
+            for pagador in config.PACOTES.keys():
+                pagadores[pagador] = {
+                    "major": versao[0],
+                    "minor": versao[1],
+                    "revision": versao[2],
+                }
+    versionar(pagadores)
