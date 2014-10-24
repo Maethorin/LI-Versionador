@@ -24,6 +24,8 @@ class Cores(object):
     BWARNING = '\033[1;93m'
     BFAIL = '\033[1;91m'
 
+SEPARADOR_DE_LINHA = "------------------------------- {} ----------------------------------{}"
+
 
 def diretorio_config():
     dir_path = os.path.join(os.path.expanduser("~"), ".versionador")
@@ -64,7 +66,7 @@ def versao_atual(caminho_setup):
 
 
 def atualiza_versao(nome_pagador, major="-", minor="-", revision="-"):
-    print "INICINADO {}{}{}\n".format(Cores.BHEADER, nome_pagador.upper(), Cores.ENDC)
+    print SEPARADOR_DE_LINHA.format("INICIANDO {}{}{}".format(Cores.BHEADER, nome_pagador, Cores.ENDC), "\n")
     caminho_setup = os.path.join(config.PACOTES[nome_pagador], "setup.py")
     setup_str = string_do_arquivo_setup(caminho_setup)
     padrao_re = regex_versao()
@@ -87,34 +89,38 @@ def atualiza_versao(nome_pagador, major="-", minor="-", revision="-"):
                 resultado_upload = check_output(["python", "setup.py", "sdist", "upload"], cwd=diretorio_setup)
         except CalledProcessError:
             pass
-        if "Server response (200)" in resultado_upload:
-            print "\n{}{} PRONTO!{}\n".format(Cores.OKGREEN, nome_pagador.upper(), Cores.ENDC)
+        if "Server response (200)" in resultado_upload or config.DEBUG:
+            print SEPARADOR_DE_LINHA.format("{}{}{} {}PRONTO!{}".format(Cores.BOKGREEN, nome_pagador, Cores.ENDC, Cores.OKGREEN, Cores.ENDC), "\n")
             resultado = {
                 "pagador": nome_pagador,
                 "atual": atual,
                 "nova_versao": nova_versao,
             }
         else:
-            print "\n{}{} NÃO FEZ UPLOAD!{}\n".format(Cores.BFAIL, nome_pagador.upper(), Cores.ENDC)
+            print SEPARADOR_DE_LINHA.format("{}{} NÃO FEZ UPLOAD!{}\n".format(Cores.BFAIL, nome_pagador, Cores.ENDC))
     else:
-        print "\n{}{} FINALIZADO MAS NENHUMA AÇÃO FOI TOMADA POIS A VERSÃO GERADA É A MESMA{}\n".format(Cores.BFAIL, nome_pagador.upper(), Cores.ENDC)
+        print "{}{}{} {}FINALIZADO MAS NENHUMA AÇÃO FOI TOMADA POIS A VERSÃO GERADA É A MESMA{}\n".format(Cores.BWARNING, nome_pagador, Cores.ENDC, Cores.WARNING, Cores.ENDC)
+        print SEPARADOR_DE_LINHA.format("{}{}{} {}PRONTO COM ERRO!{}".format(Cores.BWARNING, nome_pagador, Cores.ENDC, Cores.WARNING, Cores.ENDC), "\n")
     return resultado
 
 
 def versionar(pagadores_dict):
     resultados = []
+    tamanho_maior_nome = 0
     for chave in pagadores_dict.keys():
+        if len(chave) > tamanho_maior_nome:
+            tamanho_maior_nome = len(chave)
         pagador_dict = pagadores_dict[chave]
         resultado = atualiza_versao(chave, major=pagador_dict["major"], minor=pagador_dict["minor"], revision=pagador_dict["revision"])
         if resultado:
             resultados.append(resultado)
 
     for resultado in resultados:
-        print "ATUALIZADO {}{}{} DA VERSÃO {}{}{} PARA A VERSÃO {}{}{}".format(
-            Cores.HEADER, resultado["pagador"].upper(), Cores.ENDC,
-            Cores.BOKBLUE, resultado["atual"], Cores.ENDC,
-            Cores.BOKGREEN, resultado["nova_versao"], Cores.ENDC)
-
+        print "ATUALIZADO {}{}{} DE {}{}{} PARA {}{}{}".format(
+            Cores.HEADER, resultado["pagador"].ljust(tamanho_maior_nome), Cores.ENDC,
+            Cores.BOKBLUE, resultado["atual"].rjust(7), Cores.ENDC,
+            Cores.BOKGREEN, resultado["nova_versao"].rjust(7), Cores.ENDC)
+    print "\n"
 
 def gravar_arquivo_config():
     pp = pprint.PrettyPrinter(indent=4)
