@@ -4,3 +4,4 @@
 .idea/
 li_versionador.egg-info
 dist/
+build/
