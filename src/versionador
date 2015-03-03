@@ -192,8 +192,26 @@ def remover_pacote(pacote):
     print "\n{}Pacote {}{}{} removido com sucesso.{}\n".format(Cores.BOKGREEN, Cores.BHEADER, pacote, Cores.BOKGREEN, Cores.ENDC)
 
 
+def print_help():
+    print """
+VERSIONANDO:
+    {}versionador{} {}ab{}={}-.-.+{}
+para versionar o pacote de abreviatura ab
+
+OU:
+    {}versionador{} {}pacote{}={}-.-.+{}
+para versionar o pacote de nome pacote
+
+REGISTRANDO:
+    {}versionador{} {}registrar{} pacote caminho-setup abreviatura
+
+    """
+
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if not args:
+        print_help()
+        exit(0)
     pagadores = {}
     if args[0] == 'remover':
         try:
