@@ -97,7 +97,10 @@ def atualiza_versao(nome_pagador, major="-", minor="-", revision="-"):
                 "nova_versao": nova_versao,
             }
         else:
-            print SEPARADOR_DE_LINHA.format("{}{} NÃO FEZ UPLOAD!{}\n".format(Cores.BFAIL, nome_pagador, Cores.ENDC))
+            setup_file = open(caminho_setup, "w")
+            setup_file.write(padrao_re.sub("version='{}'".format(atual), setup_str))
+            setup_file.close()
+            print SEPARADOR_DE_LINHA.format("{}{} NÃO FEZ UPLOAD!{}".format(Cores.BFAIL, nome_pagador, Cores.ENDC), '\n')
     else:
         print "{}{}{} {}FINALIZADO MAS NENHUMA AÇÃO FOI TOMADA POIS A VERSÃO GERADA É A MESMA{}\n".format(Cores.BWARNING, nome_pagador, Cores.ENDC, Cores.WARNING, Cores.ENDC)
         print SEPARADOR_DE_LINHA.format("{}{}{} {}PRONTO COM ERRO!{}".format(Cores.BWARNING, nome_pagador, Cores.ENDC, Cores.WARNING, Cores.ENDC), "\n")
