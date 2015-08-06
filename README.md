@@ -53,8 +53,11 @@ Exemplos
 Para cadastrar novos pacotes a serem gerenciados pelo versionador.
 
 O versionador usa o arquivo **versionador.conf** para manter os pacotes dos quais ele cuida. 
-Quando a opçao **registrar** é passada, o versionador adiciona o pacote no arquivo **versionador.conf**.
-O parâmetro **caminho-setup.py** deve ser o caminho completo para o arquivo setup.py do pacote que o versionador irá gerenciar.
+Quando a opçao **registrar** é passada, o versionador adiciona o pacote no arquivo **versionador.conf** onde.
+
+* **pacote** - Nome escolhido por você para identificar o pacote no versionador apenas
+* **caminho-setup.py** - O caminho completo para o arquivo setup.py do pacote que o versionador irá gerenciar.
+* **abreviatura** - Uma sigla representando o pacote par facilitar na hora do versionamento.
     
 ### LISTANDO:
 
