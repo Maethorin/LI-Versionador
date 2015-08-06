@@ -1,6 +1,11 @@
 # Versionador para os pacotes de Loja Integrada
 
-O objetivo desse projeto é criar uma maneira fácil de subir e conhecer as versões dos pacotes da Loja Integrada que estão no https://pypi.python.org/pypi
+O objetivo desse projeto é criar uma maneira fácil de subir e conhecer as versões dos pacotes da Loja Integrada que estão no https://pypi.python.org/pypi.
+O que ele faz é incrementar a versão no arquivo setup.py do pacote e executar o comando 
+
+    python setup.py sdist upload
+
+na pasta do pacote. Ele não mexe no .pypirc e você tem que fazer as configurações necessárias para poder se conectar no PYPI. 
 
 ## Instalação
 
