@@ -59,10 +59,20 @@ def regex_versao():
     return re.compile(r"version=[\'|\"]([0-9]*)\.([0-9]*)\.([0-9]*)[\'|\"]")
 
 
+def regex_nome():
+    return re.compile(r"name=[\'|\"](.*)[\'|\"]")
+
+
 def versao_atual(caminho_setup):
     padrao_re = regex_versao()
     setup_str = string_do_arquivo_setup(caminho_setup)
     return [parte for parte in padrao_re.search(setup_str).groups()]
+
+
+def nome(caminho_setup):
+    padrao_re = regex_nome()
+    setup_str = string_do_arquivo_setup(caminho_setup)
+    return padrao_re.search(setup_str).groups()[0]
 
 
 def atualiza_versao(nome_pagador, major="-", minor="-", revision="-"):
@@ -122,6 +132,7 @@ def versionar(pagadores_dict):
             Cores.BOKGREEN, resultado["nova_versao"].rjust(7), Cores.ENDC)
     print "\n"
 
+
 def gravar_arquivo_config():
     pp = pprint.PrettyPrinter(indent=4)
     config_file = open(caminho_config, "w")
@@ -153,7 +164,7 @@ def registra_pacote(nome, caminho_setup, abreviatura=None):
     )
 
 
-def listar_pacotes():
+def listar_pacotes(requirements=False):
     tamanho_maior_nome = 0
     for pacote in config.PACOTES:
         if len(pacote) > tamanho_maior_nome:
@@ -162,15 +173,21 @@ def listar_pacotes():
     print "\nPacotes registrados:\n"
     for abreviatura in config.ABREVIATURAS:
         pacote = config.ABREVIATURAS[abreviatura]
-        tamenho = len(pacote)
+        tamanho = len(pacote)
         caminho_setup = os.path.join(config.PACOTES[pacote], "setup.py")
         _versao_atual = versao_atual(caminho_setup)
-        print "PACOTE {}{}{} VERSÃO ATUAL {}{}{} PARA VERSIONAR USE {} OU {}".format(
-            Cores.BHEADER, pacote.ljust(tamanho_maior_nome), Cores.ENDC,
-            Cores.BOKBLUE, ".".join(_versao_atual).rjust(7), Cores.ENDC,
-            "{}{}{}={}{}".format(Cores.BOKGREEN, pacote, Cores.ENDC, exemplo_versao, (" " * (tamanho_maior_nome - tamenho))),
-            "{}{}{}={}".format(Cores.BOKGREEN, abreviatura, Cores.ENDC, exemplo_versao),
-        )
+        if requirements:
+            print '{}{}{}=={}{}{}'.format(
+                Cores.BHEADER, nome(caminho_setup), Cores.ENDC,
+                Cores.BOKBLUE, ".".join(_versao_atual), Cores.ENDC
+            )
+        else:
+            print "PACOTE {}{}{} VERSÃO ATUAL {}{}{} PARA VERSIONAR USE {} OU {}".format(
+                Cores.BHEADER, pacote.ljust(tamanho_maior_nome), Cores.ENDC,
+                Cores.BOKBLUE, ".".join(_versao_atual).rjust(7), Cores.ENDC,
+                "{}{}{}={}{}".format(Cores.BOKGREEN, pacote, Cores.ENDC, exemplo_versao, (" " * (tamanho_maior_nome - tamanho))),
+                "{}{}{}={}".format(Cores.BOKGREEN, abreviatura, Cores.ENDC, exemplo_versao),
+            )
     print "\n"
 
 
@@ -205,6 +222,13 @@ para versionar o pacote de nome pacote
 REGISTRANDO:
     {}versionador{} {}registrar{} pacote caminho-setup abreviatura
 
+LISTANDO:
+    {}versionador{} {}listar{}
+para listar todos os pacotes
+
+OU:
+    {}versionador{} {}requirements{}
+para listar no formato do requirements.txt
     """
 
 if __name__ == "__main__":
@@ -225,6 +249,10 @@ if __name__ == "__main__":
         listar_pacotes()
         exit(0)
 
+    if args[0] == 'requirements':
+        listar_pacotes(requirements=True)
+        exit(0)
+
     if args[0] == 'registrar':
         _nome = ""
         _caminho_setup = ""
@@ -243,8 +271,13 @@ if __name__ == "__main__":
         exit(0)
 
     for arg in args:
-        arg = arg.split("=")
-        versao = arg[1].split(".")
+        try:
+            arg = arg.split("=")
+            versao = arg[1].split(".")
+        except IndexError:
+            print 'ATENÇÃO!!! COMANDO NÃO RECONHECIDO\n'
+            print_help()
+            exit(0)
         if arg[0] in config.ABREVIATURAS:
             pagador = config.ABREVIATURAS[arg[0]]
             pagadores[pagador] = {
